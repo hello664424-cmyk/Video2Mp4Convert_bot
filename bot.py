@@ -2,8 +2,7 @@ import os
 import logging
 import asyncio
 import tempfile
-from pathlib import Path
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -23,6 +22,17 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = os.getenv("BOT_TOKEN")
 
 
+async def post_init(application) -> None:
+    """Automatically sets the bot command menu on startup."""
+    commands = [
+        BotCommand("start", "Start the bot & welcome message"),
+        BotCommand("help", "How to use the converter"),
+        BotCommand("about", "About the bot & technical details"),
+    ]
+    await application.bot.set_my_commands(commands)
+    logger.info("Bot commands menu set successfully.")
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Sends a welcome message when /start is issued."""
     welcome_msg = (
@@ -32,7 +42,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📌 **Available Commands:**\n"
         "/start - Start the bot\n"
         "/help - How to use this bot\n"
-        "/about - About the bot & developer"
+        "/about - About the bot"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown")
 
@@ -51,7 +61,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Sends info when /about is issued."""
     about_text = (
-        "🤖 **Video Converter Bot**\n"
+        "🤖 **Video Converter Bot**\n\n"
         "Built with Python (`python-telegram-bot`) and FFmpeg.\n"
         "Hosted securely on Railway."
     )
@@ -142,15 +152,20 @@ def main():
     if not TELEGRAM_TOKEN:
         raise ValueError("BOT_TOKEN environment variable is not set.")
 
-    # Initialize application
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    # Initialize application with post_init hook
+    app = (
+        ApplicationBuilder()
+        .token(TELEGRAM_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
-    # Command Handlers added here
+    # Command Handlers
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("about", about_command))
 
-    # Media Message Handler for incoming videos/documents
+    # Media Message Handler
     app.add_handler(
         MessageHandler(
             filters.VIDEO | filters.Document.Category("video"),
